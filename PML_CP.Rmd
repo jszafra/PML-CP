@@ -1,0 +1,107 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Jessmae Zafra"
+date: "December 10, 2018"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Executive Summary
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit, it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+This project aims to predict the manner in which the participants did the exercise. That is, topredict the "classe" variable in the training data coming from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. All dataset to be used in this project came from this source:
+http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har.
+
+For this project, the developer employed 2 models: Classification Tree, and Random Forest.
+
+## Preprocessing
+
+All the data and packages to be used in this project were downloaded and loaded first in R. Next, train dataset was partitoned to two subsets: subset_train and subset_test with subset_train having 60% of the original train data. Subset_train was used to build the model while the subset_test would be used to measure the model's accuracy on out-of-sample data.
+```{r message=FALSE, warning=FALSE}
+library(caret)
+library(ggplot2)
+library(randomForest)
+library(rpart)
+library(rattle)
+```
+
+```{r }
+set.seed(102938)
+train <- read.csv("pml-training.csv")
+test <- read.csv("pml-testing.csv")
+train <- train[,-(1:5)]
+test <- test[,-(1:5)]
+inbuild <-createDataPartition(y=train$classe, p=0.6, list=FALSE)
+subset_train <- train[inbuild,]
+subset_test <- train[-inbuild,]
+dim(subset_train)
+```
+
+The dataset used in building the model (train) was made up of 155 variables and 11776 observations.
+
+Before model building, dataset must be cleaned. In this case, near-zero covariates were removed, as well as variables with 5% missing values. Only 54 variables were left.
+
+```{r }
+nzv <- nearZeroVar(subset_train,saveMetrics=FALSE) 
+subset_train <- subset_train[,-nzv]
+msng <- which(colMeans(is.na(subset_train)) >= 0.05)
+subset_train <- subset_train[,-msng]
+```
+
+## Model Building
+
+Two preliminary models were built in this project, namely: Classification Tree, and Random Forest. The final model would be selected based on its accuracy on the test set (subset_test).
+
+* Classification Tree
+
+```{r }
+model_CT <- train(classe ~ ., method="rpart", data=subset_train)
+fancyRpartPlot(model_CT$finalModel)
+```
+
+* Random Forest Model
+
+```{r }
+set.seed(102938)
+model_RF <- randomForest(classe~., data=subset_train)
+model_RF
+```
+
+## Model Accuracy
+
+To select the best model in predicting classe, accuracy of each model on the test set were computed. However, prior model application, the test set should were also cleaned the same way as the train dataset.
+
+```{r }
+subset_test <- subset_test[,-nzv]
+subset_test <- subset_test[,-msng]
+```
+
+* Classification Tree
+
+```{r }
+pred_CT <- predict(model_CT, newdata = subset_test)
+confusionMatrix(subset_test$classe, pred_CT)
+```
+
+* Random Forest Model
+
+```{r }
+pred_RF <- predict(model_RF, newdata = subset_test, type = "class")
+confusionMatrix(subset_test$classe, pred_RF)
+```
+
+Since the Random Forest obtained higher accuracy (99.43%) compared to the Classification Tree (48.71%), Random Forest wwas considered as the final model to be used in predicting the classe of 20 observations.
+
+## Conclusion
+In this section, the Random Forest model was used to predict the classe of the observations in the test set. The predicted classe were as follows:
+
+```{r }
+pred_test <- predict(model_RF, newdata = test, type = "class")
+pred_test
+```
